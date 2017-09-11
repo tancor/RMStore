@@ -110,6 +110,7 @@ typedef void (^RMStoreSuccessBlock)();
 
 @property (nonatomic, strong) RMSKProductsRequestSuccessBlock successBlock;
 @property (nonatomic, strong) RMSKProductsRequestFailureBlock failureBlock;
+@property (nonatomic, strong) SKProductsRequest *request;
 @property (nonatomic, weak) RMStore *store;
 
 @end
@@ -237,10 +238,14 @@ typedef void (^RMStoreSuccessBlock)();
     delegate.store = self;
     delegate.successBlock = successBlock;
     delegate.failureBlock = failureBlock;
-    [_productsRequestDelegates addObject:delegate];
- 
+    
     SKProductsRequest *productsRequest = [[SKProductsRequest alloc] initWithProductIdentifiers:identifiers];
-	productsRequest.delegate = delegate;
+    
+    delegate.request = productsRequest; // Keep a strong reference to the request (Cf: In-App Purchase Programming Guide)
+    
+    [_productsRequestDelegates addObject:delegate];
+    
+    productsRequest.delegate = delegate;
     
     [productsRequest start];
 }
