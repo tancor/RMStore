@@ -30,6 +30,7 @@ NSString* const RMSKDownloadFailed = @"RMSKDownloadFailed";
 NSString* const RMSKDownloadFinished = @"RMSKDownloadFinished";
 NSString* const RMSKDownloadPaused = @"RMSKDownloadPaused";
 NSString* const RMSKDownloadUpdated = @"RMSKDownloadUpdated";
+NSString* const RMSKPaymentTransactionStarted = @"RMSKPaymentTransactionStarted";
 NSString* const RMSKPaymentTransactionDeferred = @"RMSKPaymentTransactionDeferred";
 NSString* const RMSKPaymentTransactionFailed = @"RMSKPaymentTransactionFailed";
 NSString* const RMSKPaymentTransactionFinished = @"RMSKPaymentTransactionFinished";
@@ -58,6 +59,7 @@ NSString* const RMStoreNotificationTransactions = @"transactions";
 
 typedef void (^RMSKPaymentTransactionFailureBlock)(SKPaymentTransaction *transaction, NSError *error);
 typedef void (^RMSKPaymentTransactionSuccessBlock)(SKPaymentTransaction *transaction);
+typedef void (^RMSKPaymentTransactionDeferBlock)(SKPaymentTransaction *transaction);
 typedef void (^RMSKProductsRequestFailureBlock)(NSError *error);
 typedef void (^RMSKProductsRequestSuccessBlock)(NSArray *products, NSArray *invalidIdentifiers);
 typedef void (^RMStoreFailureBlock)(NSError *error);
@@ -117,6 +119,7 @@ typedef void (^RMStoreSuccessBlock)();
 
 @interface RMAddPaymentParameters : NSObject
 
+@property (nonatomic, strong) RMSKPaymentTransactionDeferBlock deferBlock;
 @property (nonatomic, strong) RMSKPaymentTransactionSuccessBlock successBlock;
 @property (nonatomic, strong) RMSKPaymentTransactionFailureBlock failureBlock;
 
@@ -200,6 +203,15 @@ typedef void (^RMStoreSuccessBlock)();
            success:(void (^)(SKPaymentTransaction *transaction))successBlock
            failure:(void (^)(SKPaymentTransaction *transaction, NSError *error))failureBlock
 {
+    [self addPayment:productIdentifier user:nil defer:nil success:successBlock failure:failureBlock];
+}
+
+- (void)addPayment:(NSString*)productIdentifier
+              user:(NSString*)userIdentifier
+            defer:(void (^)(SKPaymentTransaction *transaction))deferBlock
+           success:(void (^)(SKPaymentTransaction *transaction))successBlock
+           failure:(void (^)(SKPaymentTransaction *transaction, NSError *error))failureBlock
+{
     SKProduct *product = [self productForIdentifier:productIdentifier];
     if (product == nil)
     {
@@ -242,10 +254,9 @@ typedef void (^RMStoreSuccessBlock)();
     SKProductsRequest *productsRequest = [[SKProductsRequest alloc] initWithProductIdentifiers:identifiers];
     
     delegate.request = productsRequest; // Keep a strong reference to the request (Cf: In-App Purchase Programming Guide)
+    productsRequest.delegate = delegate;
     
     [_productsRequestDelegates addObject:delegate];
-    
-    productsRequest.delegate = delegate;
     
     [productsRequest start];
 }
@@ -330,6 +341,7 @@ typedef void (^RMStoreSuccessBlock)();
     [self addStoreObserver:observer selector:@selector(storeDownloadUpdated:) notificationName:RMSKDownloadUpdated];
     [self addStoreObserver:observer selector:@selector(storeProductsRequestFailed:) notificationName:RMSKProductsRequestFailed];
     [self addStoreObserver:observer selector:@selector(storeProductsRequestFinished:) notificationName:RMSKProductsRequestFinished];
+    [self addStoreObserver:observer selector:@selector(storePaymentTransactionStarted:) notificationName:RMSKPaymentTransactionStarted];
     [self addStoreObserver:observer selector:@selector(storePaymentTransactionDeferred:) notificationName:RMSKPaymentTransactionDeferred];
     [self addStoreObserver:observer selector:@selector(storePaymentTransactionFailed:) notificationName:RMSKPaymentTransactionFailed];
     [self addStoreObserver:observer selector:@selector(storePaymentTransactionFinished:) notificationName:RMSKPaymentTransactionFinished];
@@ -348,6 +360,7 @@ typedef void (^RMStoreSuccessBlock)();
     [[NSNotificationCenter defaultCenter] removeObserver:observer name:RMSKDownloadUpdated object:self];
     [[NSNotificationCenter defaultCenter] removeObserver:observer name:RMSKProductsRequestFailed object:self];
     [[NSNotificationCenter defaultCenter] removeObserver:observer name:RMSKProductsRequestFinished object:self];
+    [[NSNotificationCenter defaultCenter] removeObserver:observer name:RMSKPaymentTransactionStarted object:self];
     [[NSNotificationCenter defaultCenter] removeObserver:observer name:RMSKPaymentTransactionDeferred object:self];
     [[NSNotificationCenter defaultCenter] removeObserver:observer name:RMSKPaymentTransactionFailed object:self];
     [[NSNotificationCenter defaultCenter] removeObserver:observer name:RMSKPaymentTransactionFinished object:self];
@@ -375,6 +388,9 @@ typedef void (^RMStoreSuccessBlock)();
     {
         switch (transaction.transactionState)
         {
+            case SKPaymentTransactionStatePurchasing:
+                [self didStartTransactionPurchase:transaction];
+                break;
             case SKPaymentTransactionStatePurchased:
                 [self didPurchaseTransaction:transaction queue:queue];
                 break;
@@ -592,6 +608,11 @@ typedef void (^RMStoreSuccessBlock)();
     }
 }
 
+- (void)didStartTransactionPurchase:(SKPaymentTransaction *)transaction
+{
+    [self postNotificationWithName:RMSKPaymentTransactionStarted transaction:transaction userInfoExtras:nil];
+}
+
 - (void)didDeferTransaction:(SKPaymentTransaction *)transaction
 {
     [self postNotificationWithName:RMSKPaymentTransactionDeferred transaction:transaction userInfoExtras:nil];
@@ -760,9 +781,9 @@ typedef void (^RMStoreSuccessBlock)();
         [self.store addProduct:product];
     }
     
-    [invalidProductIdentifiers enumerateObjectsUsingBlock:^(NSString *invalid, NSUInteger idx, BOOL *stop) {
+    for (NSString *invalid in invalidProductIdentifiers) {
         RMStoreLog(@"invalid product with id %@", invalid);
-    }];
+    }
     
     if (self.successBlock)
     {
