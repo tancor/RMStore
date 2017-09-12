@@ -86,11 +86,11 @@ extern NSInteger const RMStoreErrorCodeUnableToCompleteVerification;
  @param failureBlock The block to be called if the payment fails or there isn't any product with the given identifier. Can be `nil`.
  @see [SKPayment applicationUsername]
  */
-- - (void)addPayment:(NSString*)productIdentifier
-                user:(NSString*)userIdentifier
-               defer:(void (^)(SKPaymentTransaction *transaction))deferBlock
-             success:(void (^)(SKPaymentTransaction *transaction))successBlock
-             failure:(void (^)(SKPaymentTransaction *transaction, NSError *error))failureBlock;
+- (void)addPayment:(NSString*)productIdentifier
+              user:(NSString*)userIdentifier
+             defer:(void (^)(SKPaymentTransaction *transaction))deferBlock
+           success:(void (^)(SKPaymentTransaction *transaction))successBlock
+           failure:(void (^)(SKPaymentTransaction *transaction, NSError *error))failureBlock;
 
 /** Request localized information about a set of products from the Apple App Store.
  @param identifiers The set of product identifiers for the products you wish to retrieve information of.
