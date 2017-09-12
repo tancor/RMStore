@@ -27,9 +27,9 @@
 @property(nonatomic, copy) NSString *productIdentifier;
 @property(nonatomic, copy) NSDate *transactionDate;
 @property(nonatomic, copy) NSString *transactionIdentifier;
-#if __IPHONE_OS_VERSION_MIN_REQUIRED < 70000
+//#if __IPHONE_OS_VERSION_MIN_REQUIRED < 70000
 @property(nonatomic, strong) NSData *transactionReceipt;
-#endif
+//#endif
 
 - (instancetype)initWithPaymentTransaction:(SKPaymentTransaction*)paymentTransaction;
 
