@@ -30,6 +30,7 @@ extern NSString *const RMStoreErrorDomain;
 extern NSInteger const RMStoreErrorCodeDownloadCanceled;
 extern NSInteger const RMStoreErrorCodeUnknownProductIdentifier;
 extern NSInteger const RMStoreErrorCodeUnableToCompleteVerification;
+extern NSInteger const RMStoreErrorCodeNoPendingPayment;
 
 /** A StoreKit wrapper that adds blocks and notifications, plus optional receipt verification and purchase management.
  */
@@ -51,6 +52,22 @@ extern NSInteger const RMStoreErrorCodeUnableToCompleteVerification;
 /** Returns whether the user is allowed to make payments.
  */
 + (BOOL)canMakePayments;
+
+/** Returns whether a payment is pending for purchase.
+ */
+- (BOOL)hasPendingPayment;
+
+/** Clear payment pending for purchase.
+ */
+- (void)cancelPendingPayment;
+
+/** The payment pending for purchase. Can be nil.
+ */
+@property (nonatomic, readonly) SKPayment *pendingPayment __attribute__((availability(ios,introduced=11.0)));
+
+/** The product pending for purchase. Can be nil.
+ */
+@property (nonatomic, readonly) SKProduct *pendingProduct __attribute__((availability(ios,introduced=11.0)));
 
 /** Request payment of the product with the given product identifier.
  @param productIdentifier The identifier of the product whose payment will be requested.
@@ -126,6 +143,39 @@ extern NSInteger const RMStoreErrorCodeUnableToCompleteVerification;
 - (void)restoreTransactionsOfUser:(NSString*)userIdentifier
                         onSuccess:(void (^)(NSArray *transactions))successBlock
                           failure:(void (^)(NSError *error))failureBlock __attribute__((availability(ios,introduced=7.0)));
+
+/** Request actual pending payment.
+ */
+- (void)addPendingPayment __attribute__((availability(ios,introduced=11.0)));
+
+/** Request actual pending payment. `successBlock` will be called if the payment is successful, `failureBlock` if it isn't.
+ @param successBlock The block to be called if the payment is sucessful. Can be `nil`.
+ @param failureBlock The block to be called if the payment fails or there isn't any product with the given identifier. Can be `nil`.
+ */
+- (void)addPendingPaymentOnSuccess:(void (^)(SKPaymentTransaction *transaction))successBlock
+                           failure:(void (^)(SKPaymentTransaction *transaction, NSError *error))failureBlock __attribute__((availability(ios,introduced=11.0)));
+
+/** Request actual pending payment. `successBlock` will be called if the payment is successful, `failureBlock` if it isn't.
+ @param userIdentifier An opaque identifier of the user’s account, if applicable. Can be `nil`.
+ @param successBlock The block to be called if the payment is sucessful. Can be `nil`.
+ @param failureBlock The block to be called if the payment fails or there isn't any product with the given identifier. Can be `nil`.
+ @see [SKPayment applicationUsername]
+ */
+- (void)addPendingPayementOfUser:(NSString*)userIdentifier
+                       onSuccess:(void (^)(SKPaymentTransaction *transaction))successBlock
+                         failure:(void (^)(SKPaymentTransaction *transaction, NSError *error))failureBlock __attribute__((availability(ios,introduced=11.0)));
+
+/** Request actual pending payment. `deferBlock` will be called if the payment is deferred, `successBlock` will be called if the payment is successful, `failureBlock` if it isn't. If the paiement is deffered, update your UI to not block the user, but the payment transaction remains in the queue and the block success / failure can still be called later.
+ @param userIdentifier An opaque identifier of the user’s account, if applicable. Can be `nil`.
+ @param deferBlock The block to be called if the payment is deferred. Can be `nil`.
+ @param successBlock The block to be called if the payment is sucessful. Can be `nil`.
+ @param failureBlock The block to be called if the payment fails or there isn't any product with the given identifier. Can be `nil`.
+ @see [SKPayment applicationUsername]
+ */
+- (void)addPendingPayementOfUser:(NSString*)userIdentifier
+                           defer:(void (^)(SKPaymentTransaction *transaction))deferBlock
+                         success:(void (^)(SKPaymentTransaction *transaction))successBlock
+                         failure:(void (^)(SKPaymentTransaction *transaction, NSError *error))failureBlock __attribute__((availability(ios,introduced=11.0)));
 
 #pragma mark Receipt
 ///---------------------------------------------
@@ -277,6 +327,11 @@ extern NSInteger const RMStoreErrorCodeUnableToCompleteVerification;
 - (void)storeRestoreTransactionsFailed:(NSNotification*)notification;
 - (void)storeRestoreTransactionsFinished:(NSNotification*)notification;
 
+/**
+ Tells the observer that a new SKPayment should be added to the SKPaymentQueue. Use @c product to get the product and @c payment to get the payment.
+ */
+- (void)storePaymentTransactionPending:(NSNotification*)notification __attribute__((availability(ios,introduced=11.0)));
+
 @end
 
 /**
@@ -300,9 +355,17 @@ extern NSInteger const RMStoreErrorCodeUnableToCompleteVerification;
  */
 @property (nonatomic, readonly) NSString *rm_productIdentifier;
 
+/** SKProduct, pending product. Used in @c storePaymentTransactionPending:.
+ */
+@property (nonatomic, readonly) SKProduct *rm_product;
+
 /** Array of SKProducts, one product for each valid product identifier provided in the corresponding request. Used in @c storeProductsRequestFinished:.
  */
 @property (nonatomic, readonly) NSArray *rm_products;
+
+/** SKPayment, pending payment. Used in @c storePaymentTransactionPending:.
+ */
+@property (nonatomic, readonly) SKPayment *rm_payment;
 
 /** Used in @c storeDownload*:.
  */
